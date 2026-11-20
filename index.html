@@ -86,6 +86,10 @@ ul.l li{padding:1px 0}
 .st .items{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:10px;margin-top:10px}
 .si{background:#120f0b;border:1px solid var(--line2);border-radius:6px;padding:10px;text-align:center}
 .si h4{margin:0;font-size:15px}
+.sp h3{color:var(--set)}
+.tag.setname{color:var(--set)}
+.setall{margin-top:8px}
+.setall summary{cursor:pointer;color:var(--muted,#aaa);font-size:13px}
 .setbon{display:flex;flex-wrap:wrap;gap:20px;justify-content:center;text-align:center}
 .cb{text-align:left}
 .cb h3{text-align:center}
@@ -151,6 +155,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:10px 16px 30p
     <input id="q" type="search" placeholder="검색 (예: 수수께끼, enigma, 엘+솔, &quot;마법 아이템 발견&quot;)">
     <label class="exact" title="켜면 띄어쓰기까지 그대로인 문구만 찾습니다. 꺼져 있어도 &quot;따옴표&quot;로 묶은 부분은 문구 그대로 찾습니다."><input type="checkbox" id="exact"> 문구 그대로</label>
     <select id="type"></select>
+    <select id="setview" title="세트 보기 방식" hidden><option value="item">세트 아이템 하나씩 (부위·옵션으로 찾기)</option><option value="set">세트로 묶어 보기</option></select>
     <select id="sock" title="룬워드 소켓 수"></select>
     <select id="kind" title="조합 종류" hidden><option value="">모든 조합 종류</option><option value="ench">인챈트 (가진 장비에 속성 추가)</option><option value="craft">제작 (새 아이템 만들기)</option><option value="socket">홈 뚫기·홈 추가</option><option value="reroll">재굴림·변환</option><option value="recycle">재활용</option><option value="sunder">파괴 부적 제작</option><option value="uber">우버·포탈·열쇠</option><option value="etc">기타 (수리·업그레이드 등)</option></select>
     <select id="src" title="얻는 법" hidden><option value="">모든 얻는 법</option><option value="droponly">드랍 전용 표시 (큐브 재굴림 불가)</option><option value="drop">드랍으로만 (부적 · 레벨 107 유니크)</option><option value="conv">드랍 + 전환 구슬</option><option value="cubeany">드랍 + 큐브 제작</option><option value="nodrop">드랍 안 됨 (큐브·특정 몬스터)</option></select>
@@ -473,20 +478,20 @@ const R = {
       ${equipHTML(eq)}${linesHTML(it.Lines, 'mod')}</div>`;
   },
   sets(st) {
-    const items = (st.SetItems || []).map(si => {
-      const bon = (si.SetBonuses || []).flat();
-      return `<div class="si"><h4>${esc(T(si.Index))}</h4>${EN(si.Index) ? `<div class="en">${esc(EN(si.Index))}</div>` : ''}${tradeBtn(si.Index)}
-        <div class="base">${esc(T((si.Equipment || {}).NameKey || si.Code))}</div>
-        <div class="meta"><span class="tag">요구 레벨 ${si.RequiredLevel ?? '-'}</span>${si.DropOnly ? DROPONLY_TAG : ''}</div>
-        ${equipHTML(si.Equipment)}${linesHTML(si.Lines, 'mod')}
-        ${bon.length ? `<div class="sec">세트 효과 (이 아이템)</div>${linesHTML(bon, 'bonus')}` : ''}</div>`;
-    }).join('');
+    const items = (st.SetItems || []).map(si => `<div class="si">${siInner(si, 'h4')}</div>`).join('');
     const part = st.PartialBonuses || [], full = st.FullBonuses || [];
     return `<div class="card st"><div class="head">${nameBlock(st.Index, false)}
       <div class="meta">${tags(st)}<span class="tag">${(st.SetItems || []).length}개 구성</span></div>
       <div class="setbon">${part.length ? `<div><div class="sec">부분 세트 효과</div>${linesHTML(part, 'bonus')}</div>` : ''}
       ${full.length ? `<div><div class="sec">전체 세트 효과</div>${linesHTML(full, 'full')}</div>` : ''}</div></div>
       <div class="items">${items}</div></div>`;
+  },
+  // 세트 아이템 낱개 카드: 이 아이템 옵션 + 어느 세트인지, 세트 전체 효과는 접어 둠
+  setitem(x) {
+    const { si, st } = x, part = st.PartialBonuses || [], full = st.FullBonuses || [];
+    const extra = `<span class="tag setname">세트: ${esc(T(st.Index))} (${(st.SetItems || []).length}개 구성)</span>${tags(x)}<span class="tag">${esc(T(si.Type))}</span>`;
+    const all = part.length || full.length ? `<details class="setall"><summary>세트 전체 효과 보기</summary>${part.length ? `<div class="sec">부분 세트 효과</div>${linesHTML(part, 'bonus')}` : ''}${full.length ? `<div class="sec">전체 세트 효과</div>${linesHTML(full, 'full')}` : ''}</details>` : '';
+    return `<div class="card sp">${siInner(si, 'h3', extra)}${all}</div>`;
   },
   misc(it) {
     const lab = (TYPES.find(([k]) => k === it.Cat) || [])[1] || '';
@@ -515,6 +520,14 @@ const R = {
   },
 };
 
+function siInner(si, h, extra = '') {
+  const bon = (si.SetBonuses || []).flat();
+  return `<${h}>${esc(T(si.Index))}</${h}>${EN(si.Index) ? `<div class="en">${esc(EN(si.Index))}</div>` : ''}${tradeBtn(si.Index)}
+        <div class="base">${esc(T((si.Equipment || {}).NameKey || si.Code))}</div>
+        <div class="meta">${extra}<span class="tag">요구 레벨 ${si.RequiredLevel ?? '-'}</span>${si.DropOnly ? DROPONLY_TAG : ''}</div>
+        ${equipHTML(si.Equipment)}${linesHTML(si.Lines, 'mod')}
+        ${bon.length ? `<div class="sec">세트 효과 (이 아이템)</div>${linesHTML(bon, 'bonus')}` : ''}`;
+}
 // 큐브 카드 제목: 설명이 있으면 설명, 없으면 결과물 이름
 function cubeTitle(it) {
   if (it.Description) return T(it.Description);
@@ -572,6 +585,18 @@ for (const [k] of TABS) {
 // 룬워드 검색 편의: "엘+솔"처럼 룬 이름 나열
 for (const it of DATA.runewords) it._txt += '\n' + (it.Runes || []).map(r => runeShort(r.NameKey).split(' ')[0]).join('+').toLowerCase();
 
+// 세트 아이템 하나씩 보기: 세트를 풀어 부위(종류)·옵션으로 찾게
+const SETITEMS = [];
+for (const st of DATA.sets) for (const si of st.SetItems || []) {
+  const out = [T(si.Index), EN(si.Index), si.Index, ALTN(si.Index), T(st.Index), EN(st.Index), st.Index, T(si.Type)];
+  const nk = si.Equipment && si.Equipment.NameKey; if (nk) out.push(T(nk), EN(nk), ALTN(nk));
+  if (si.DropOnly) out.push('드랍 전용', '재굴림 불가');
+  textOf(si, out);
+  SETITEMS.push({ si, st, Vanilla: st.Vanilla, DropOnly: si.DropOnly, _types: [si.Type], _cls: collectClasses(si, [si.Type]),
+    _txt: out.join('\n').toLowerCase(), _name: T(si.Index) || '', _lv: si.RequiredLevel || 0 });
+}
+const setItemView = () => tab === 'sets' && $('setview').value === 'item';
+
 // ---------- UI ----------
 const $ = id => document.getElementById(id);
 let tab = 'wiki', shown = 0, list = [];
@@ -594,7 +619,7 @@ $('mode').onclick = e => {
 const ART_BLK = 'h1,h2,h3,h4,h5,p,li,tr,table,blockquote,pre,img,.ptitle';
 function viewState() {
   const hh = document.querySelector('header').offsetHeight;
-  const st = { tab, q: $('q').value, type: $('type').value, sock: $('sock').value, src: $('src').value, kind: $('kind').value, cls: $('cls').value, orig: $('orig').value, sort: $('sort').value };
+  const st = { tab, q: $('q').value, type: $('type').value, sock: $('sock').value, src: $('src').value, kind: $('kind').value, setview: $('setview').value, cls: $('cls').value, orig: $('orig').value, sort: $('sort').value };
   if (tab === 'wiki') {
     const els = [...$('art').querySelectorAll(ART_BLK)];
     const i = els.findIndex(e => e.getBoundingClientRect().top >= hh - 1);
@@ -613,7 +638,7 @@ function restoreView() {
   if (st.tab !== 'wiki' && DATA[st.tab]) {
     if (tab !== st.tab) show(st.tab, { noSave: true });
     $('q').value = st.q || '';
-    for (const id of ['type', 'sock', 'src', 'kind', 'cls', 'orig', 'sort']) if (st[id] && [...$(id).options].some(o => o.value === st[id])) $(id).value = st[id];
+    for (const id of ['type', 'sock', 'src', 'kind', 'setview', 'cls', 'orig', 'sort']) if (st[id] && [...$(id).options].some(o => o.value === st[id])) $(id).value = st[id];
     run();
     if (st.ci != null) while (shown <= st.ci && shown < list.length) more();
   }
@@ -786,6 +811,7 @@ function setupFilters() {
   $('sock').hidden = !rw;
   $('src').hidden = tab !== 'uniques';
   $('kind').hidden = tab !== 'cube';
+  $('setview').hidden = tab !== 'sets';
   if (rw && !$('sock').options.length) {
     const cnt = {};
     for (const it of DATA.runewords) { const n = (it.Runes || []).length; cnt[n] = (cnt[n] || 0) + 1; }
@@ -817,7 +843,7 @@ function run() {
   const sk = tab === 'runewords' ? $('sock').value : '';
   const sr = tab === 'uniques' ? $('src').value : '';
   const kd = tab === 'cube' ? $('kind').value : '';
-  list = DATA[tab].filter(it => {
+  list = (setItemView() ? SETITEMS : DATA[tab]).filter(it => {
     if (og && (it.Vanilla === 'Y' ? 'Y' : 'N') !== og) return false;
     if (sk && (it.Runes || []).length !== +sk) return false;
     if (kd && it._kind !== kd) return false;
@@ -839,14 +865,14 @@ function run() {
   if (kd) active.push(KIND_LABEL[kd]);
   if (cl) active.push(CLS_KO[cl] + ' 전용');
   if (og) active.push(og === 'N' ? '리매진드 신규' : '원작');
-  $('count').innerHTML = `${list.length}개` + (active.length ? ` <span class="filters">· ${esc(active.join(' · '))}</span> <button id="reset" type="button">필터 초기화</button>` : '');
+  $('count').innerHTML = `${list.length}개${setItemView() ? ' 세트 아이템' : ''}` + (active.length ? ` <span class="filters">· ${esc(active.join(' · '))}</span> <button id="reset" type="button">필터 초기화</button>` : '');
   if (!list.length) $('grid').innerHTML = '<div class="empty">찾는 항목이 없습니다.' + (active.length ? ' 위의 "필터 초기화"를 눌러 보세요.' : '') + '</div>';
   more();
 }
 function more() {
   if (!DATA[tab]) return;
-  const n = PAGE[tab], part = list.slice(shown, shown + n);
-  $('grid').insertAdjacentHTML('beforeend', part.map(it => R[tab](it)).join(''));
+  const si = setItemView(), n = si ? 120 : PAGE[tab], part = list.slice(shown, shown + n);
+  $('grid').insertAdjacentHTML('beforeend', part.map(it => si ? R.setitem(it) : R[tab](it)).join(''));
   shown += part.length;
   $('more').hidden = shown >= list.length;
   $('more').textContent = `더 보기 (${list.length - shown}개 남음)`;
@@ -884,6 +910,9 @@ $('count').addEventListener('click', e => {
   q.addEventListener('input', e => { if (composing || e.isComposing) return; go(); });
 }
 ['type', 'sock', 'src', 'kind', 'cls', 'sort', 'orig'].forEach(id => $(id).onchange = run);
+// 세트 보기 방식은 기억 (처음엔 하나씩)
+try { if (localStorage.getItem('rmj-setview') === 'set') $('setview').value = 'set'; } catch (e) {}
+$('setview').onchange = () => { try { localStorage.setItem('rmj-setview', $('setview').value); } catch (e) {} run(); window.scrollTo(0, 0); };
 try { $('exact').checked = localStorage.getItem('rmj-exact') === '1'; } catch (e) {}
 $('exact').onchange = () => { try { localStorage.setItem('rmj-exact', $('exact').checked ? '1' : ''); } catch (e) {} run(); };
 
